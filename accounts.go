@@ -7,7 +7,7 @@ import (
 	"path"
 	"time"
 
-	passhash "github.com/dwin/goSecretBoxPassword"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type accountRepository interface {
@@ -31,7 +31,12 @@ func (repo *fileBasedAccountRepository) path(username string) (string, error) {
 }
 
 func (repo *fileBasedAccountRepository) hash(password string) (string, error) {
-	return passhash.Hash(password, masterPassword, 0, passhash.ScryptParams{N: 32768, R: 16, P: 1}, passhash.DefaultParams)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hash), err
+}
+
+func (repo *fileBasedAccountRepository) verify(password string, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
 func (repo *fileBasedAccountRepository) Add(username, password string) error {
@@ -76,7 +81,7 @@ func (repo *fileBasedAccountRepository) Exists(username, password string) error 
 	}
 	time.Sleep(time.Duration(rand.Int()%50) * time.Millisecond)
 
-	err = passhash.Verify(password, masterPassword, savedHash)
+	err = repo.verify(password, savedHash)
 
 	if fileErr != nil {
 		return fileErr
