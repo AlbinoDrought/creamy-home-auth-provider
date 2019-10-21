@@ -1,0 +1,44 @@
+html, body {
+  height: 100%;
+  background-color: rebeccapurple;
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.form {
+  background-color: rgba(255,255,255,0.6);
+  border-radius: 1em;
+  padding: 1em;
+}
+
+.form-control {
+  margin: 1em 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-control:first-child {
+  margin-top: 0;
+}
+
+.form-control:last-child {
+  margin-bottom: 0;
+}
+
+.nuh-uh-uh {
+  font-size: xx-large;
+  transform: rotate(10deg); 
+  color: orange;
+  text-shadow: 0.1em 0.1em lime;
+  text-align: center;
+}
+

@@ -1,0 +1,49 @@
+version: '3'
+
+services:
+  provider:
+    build: .
+    depends_on:
+      - hydra
+    environment:
+      - CREAMY_HYDRA_URL=http://hydra:4445
+    restart: on-failure
+    ports:
+      - "7000:7000"
+    volumes:
+      - ./accounts:/accounts
+
+  hydra-migrate:
+    image: oryd/hydra:v1
+    environment:
+      - SECRETS_SYSTEM=s4XdDQRqMA9cOan47wzjJOTG53bExJHW
+      - DSN=postgres://hydra:secret@postgresd:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+    command:
+      migrate sql -e --yes
+    restart: on-failure
+
+  hydra:
+    image: oryd/hydra:v1
+    depends_on:
+      - hydra-migrate
+    command:
+      serve all --dangerous-force-http
+    restart: on-failure
+    ports:
+      - "4444:4444"
+      - "4445:4445"
+    environment:
+      - SECRETS_SYSTEM=s4XdDQRqMA9cOan47wzjJOTG53bExJHW
+      - URLS_SELF_ISSUER=https://localhost:4444/
+      - URLS_CONSENT=http://localhost:7000/consent
+      - URLS_LOGIN=http://localhost:7000/login
+      - DSN=postgres://hydra:secret@postgresd:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+
+  postgresd:
+    image: postgres:9.6
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=hydra
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=hydra
