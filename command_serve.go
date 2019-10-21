@@ -9,6 +9,7 @@ import (
 	"github.com/ory/hydra/sdk/go/hydra/client/admin"
 	"github.com/ory/hydra/sdk/go/hydra/models"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/negroni"
 )
 
 var hydraClient *client.OryHydra
@@ -163,6 +164,10 @@ func serveHandler() {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(pathToStaticResources))))
 	}
 
+	n := negroni.New()
+	n.Use(negroni.NewRecovery())
+	n.UseHandler(router)
+
 	log.WithField("port", port).Info("Listening")
-	log.Fatal(http.ListenAndServe(":"+port, router))
+	log.Fatal(http.ListenAndServe(":"+port, n))
 }
