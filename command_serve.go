@@ -110,8 +110,10 @@ func consentRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	subject := consentRequest.GetPayload().Subject
+
 	contextLogger = contextLogger.WithFields(log.Fields{
-		"subject": consentRequest.GetPayload().Subject,
+		"subject": subject,
 		"skip":    consentRequest.GetPayload().Skip,
 	})
 
@@ -119,6 +121,13 @@ func consentRequest(w http.ResponseWriter, r *http.Request) {
 		admin.NewAcceptConsentRequestParams().WithConsentChallenge(challenge).WithBody(&models.HandledConsentRequest{
 			GrantedAudience: consentRequest.Payload.RequestedAudience,
 			GrantedScope:    consentRequest.Payload.RequestedScope,
+			Session: &models.ConsentRequestSessionData{
+				IDToken: map[string]interface{}{
+					"name":           subject,
+					"email":          subject + "@" + emailDomain,
+					"email_verified": true,
+				},
+			},
 		}),
 	)
 	if err != nil {

@@ -26,6 +26,7 @@ go build
 
 ```
 CREAMY_ACCOUNTS_DIRECTORY="./accounts" \
+CREAMY_EMAIL_DOMAIN="example.com" \
 CREAMY_HTTP_PORT=7000 \
 CREAMY_HYDRA_URL="http://hydra.localhost:4445" \
 CREMAY_PATH_TO_STATIC_RESOURCES="./sample-login/static" \
@@ -35,6 +36,8 @@ CREAMY_PATH_TO_LOGIN_FAILED_PAGE="./sample-login/failed.html" \
 ```
 
 - `CREAMY_ACCOUNTS_DIRECTORY`: path where accounts data is stored, defaults to `./accounts`
+
+- `CREAMY_EMAIL_DOMAIN`: domain to append to usernames for emails, defaults to `example.com`
 
 - `CREAMY_HTTP_PORT`: port to listen on, defaults to `7000`
 

@@ -4,6 +4,7 @@ import "os"
 
 var (
 	hydraURL              string
+	emailDomain           string
 	accountDirectory      string
 	pathToStaticResources string
 	pathToLoginPage       string
@@ -21,6 +22,7 @@ func envDefault(name string, backup string) string {
 
 func init() {
 	hydraURL = envDefault("CREAMY_HYDRA_URL", "http://hydra.localhost:4445")
+	emailDomain = envDefault("CREAMY_EMAIL_DOMAIN", "example.com")
 	accountDirectory = envDefault("CREAMY_ACCOUNTS_DIRECTORY", "./accounts")
 	pathToStaticResources = envDefault("CREAMY_PATH_TO_STATIC_RESOURCES", "./sample-login/static")
 	pathToLoginPage = envDefault("CREAMY_PATH_TO_LOGIN_PAGE", "./sample-login/login.html")
