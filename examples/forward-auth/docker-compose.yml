@@ -1,0 +1,142 @@
+version: '3'
+
+services:
+  traefik:
+    image: traefik:v2.0
+    environment:
+      # show hits in stdout for debugging:
+      TRAEFIK_ACCESSLOG: 'true'
+      # enable dashboard for debugging on 8080:
+      TRAEFIK_API: 'true'
+      TRAEFIK_API_INSECURE: 'true'
+      # route to things from docker:
+      TRAEFIK_PROVIDERS_DOCKER: 'true'
+      TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: 'false'
+      # but only if they have the label 'traefik.environment=localhost':
+      TRAEFIK_PROVIDERS_DOCKER_CONSTRAINTS: 'Label(`traefik.environment`, `localhost`)'
+      # expose :80 as the "web" endpoint:
+      TRAEFIK_ENTRYPOINTS_WEB: 'true'
+      TRAEFIK_ENTRYPOINTS_WEB_ADDRESS: :80
+    ports:
+      - "80:80"
+      - "8080:8080"
+    networks:
+      web:
+        aliases:
+          # these aliases are hacks so we can route the *.localhost domains from inside the containers:
+          - auth-provider.test.localhost
+          - auth-hydra.test.localhost
+          - auth-mesa.test.localhost
+          - creamy-videos.test.localhost
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  provider:
+    image: albinodrought/creamy-home-auth-provider
+    depends_on:
+      - hydra
+    environment:
+      - CREAMY_HYDRA_URL=http://hydra:4445
+    restart: on-failure
+    volumes:
+      - ./accounts:/accounts
+    networks:
+      - web
+    labels:
+      traefik.enable: 'true'
+      traefik.environment: 'localhost'
+      traefik.http.services.auth-provider.loadbalancer.server.port: '7000'
+      traefik.http.routers.auth-provider.rule: 'Host(`auth-provider.test.localhost`)'
+
+  postgresd:
+    image: postgres:9.6
+    networks:
+      - web
+    environment:
+      - POSTGRES_USER=hydra
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=hydra
+
+  hydra-migrate:
+    image: oryd/hydra:v1
+    depends_on:
+      - postgresd
+    networks:
+      - web
+    environment:
+      - SECRETS_SYSTEM=s4XdDQRqMA9cOan47wzjJOTG53bExJHW
+      - DSN=postgres://hydra:secret@postgresd:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+    command:
+      migrate sql -e --yes
+    restart: on-failure
+
+  hydra:
+    image: oryd/hydra:v1
+    depends_on:
+      - postgresd
+      - hydra-migrate
+    command:
+      serve all --dangerous-force-http
+    restart: on-failure
+    networks:
+      - web
+    environment:
+      - SECRETS_SYSTEM=s4XdDQRqMA9cOan47wzjJOTG53bExJHW
+      - DSN=postgres://hydra:secret@postgresd:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+      - URLS_SELF_ISSUER=http://auth-hydra.test.localhost/
+      - URLS_CONSENT=http://auth-provider.test.localhost/consent
+      - URLS_LOGIN=http://auth-provider.test.localhost/login
+    labels:
+      traefik.enable: 'true'
+      traefik.environment: 'localhost'
+      traefik.http.services.auth-hydra.loadbalancer.server.port: '4444'
+      traefik.http.routers.auth-hydra.rule: 'Host(`auth-hydra.test.localhost`)'
+
+  auth-meso:
+    image: mesosphere/traefik-forward-auth:1.0.4
+    environment:
+      # Secret used for signing (required)
+      SECRET: pancakes
+      # OpenID Connect config:
+      PROVIDER_URI: http://auth-hydra.test.localhost/
+      CLIENT_ID: auth-code-client
+      CLIENT_SECRET: secret
+      # We are in `Auth Host` mode.
+      # This instance will be available at auth-meso.test.localhost:
+      AUTH_HOST: auth-meso.test.localhost
+      # All of our services are under the domain test.localhost, so that is our cookie domain:
+      COOKIE_DOMAIN: test.localhost
+      # We only have HTTP enabled, so insecure cookies must be enabled for cookies to persist:
+      INSECURE_COOKIE: 'true'
+    restart: on-failure
+    depends_on:
+      - traefik
+      - hydra
+    networks:
+      - web
+    labels:
+      traefik.enable: 'true'
+      traefik.environment: 'localhost'
+      # the forward-auth middleware is registered here:
+      # (note: it uses a route to this service that DOES NOT use the forward-auth middleware)
+      traefik.http.middlewares.forward-auth.forwardauth.address: 'http://auth-meso:4181/'
+      traefik.http.middlewares.forward-auth.forwardauth.authResponseHeaders: 'X-Forwarded-User'
+      traefik.http.services.auth-meso.loadbalancer.server.port: '4181'
+      # here is our routable auth-meso.test.localhost Auth Host
+      # (note: it uses the forward-auth middleware)
+      traefik.http.routers.auth-meso.rule: 'Host(`auth-meso.test.localhost`)'
+      traefik.http.routers.auth-meso.middlewares: 'forward-auth'
+
+  some-cool-service:
+    image: albinodrought/creamy-videos
+    networks:
+      - web
+    labels:
+      traefik.enable: 'true'
+      traefik.environment: 'localhost'
+      traefik.http.services.creamy-videos.loadbalancer.server.port: '3000'
+      traefik.http.routers.creamy-videos.rule: 'Host(`creamy-videos.test.localhost`)'
+      traefik.http.routers.creamy-videos.middlewares: 'forward-auth'
+
+networks:
+  web:
